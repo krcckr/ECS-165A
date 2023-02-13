@@ -64,6 +64,7 @@ class Table:
                     value_index += 1
                 
                 page_range.num_base_record += 1
+
             
             else:
                 new_page_range = Page_range(self.num_columns)
@@ -80,7 +81,18 @@ class Table:
                 new_page_range.num_base_record += 1
                 self.page_ranges.append(new_page_range)
 
-            return True
+            
+            #locate the position of the inserted record
+            page_range_index = len(self.page_ranges) - 1 
+            page_index = self.rid // 512
+
+            #update the page_directory
+            self.page_directory[self.rid] = (page_range_index, page_index)
+            
+
+        return True
+    
+
                 
                 
             
