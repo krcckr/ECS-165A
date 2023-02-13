@@ -1,5 +1,5 @@
 from lstore.index import Index
-from lstore.page import Page
+from lstore.page import Page, Page_range
 from time import time
 
 INDIRECTION_COLUMN = 0
@@ -25,65 +25,61 @@ class Table:
     def __init__(self, name, num_columns, key):
         self.name = name
         self.key = key
+        self.keybuffer = [key]
         self.num_columns = num_columns
         self.page_directory = {}
         self.index = Index(self)
-        self.page_range = []
-        self.page = Page()
-        self.table = []
-
-        #Allocate all the space for records, INDIRECTION_COLUMN, RID_COLUMN,TIMESTAMP_COLUMN, and SCHEMA_ENCODING_COLUMN
-        for i in range(num_columns + 4):
-            emptylist = []
-            self.table.append(emptylist)
-            self.page_range.append(emptylist)
+        self.page_ranges = [Page_range(num_columns)]
         self.rid = 0
 
-        pass
 
     def __merge(self):
         print("merge is happening")
         pass
         
     def insert(self, *columns):
-        schema_encoding = '0' * self.num_columns
+        schema_encoding = int('0' * len(columns))
         key = columns[self.key]
         
-
         #if the key exsit return false
-        if(key in self.table[self.key + 4]):
+        if(key in self.keybuffer):
             return False
         
         else:
+            self.keybuffer.append(key)
             self.rid += 1 #assign next rid to base record
-            record_index = 4 #the first column that store the record is column 4
-            #create a base record:
-            record = Record(self.rid, key, columns)
-
-            #insert the schema_encoding column:
-            self.table[SCHEMA_ENCODING_COLUMN] = [schema_encoding]
-
-            #insert the rid column:
-            self.table[RID_COLUMN].append(record.rid)
-
-            #update the indirection column:
-            self.table[INDIRECTION_COLUMN].append(record.rid)
             
             #insert the record seperately to implement a columnar structrue 
-            for value in columns:
-                self.table[record_index].append(value)
+            page_range = self.page_ranges[-1]
+            if(page_range.has_capacity()):
                 
-                #write the record to page and add the page to page range
-                if(self.page.has_capacity()):
-                    self.page.write(value)
-                    self.page_range[record_index] = [self.page]
-                else:
-                    self.page = Page() #create an empty page to write
-                    self.page.write(value)
-                    self.page_range[record_index] = [self.page]
+                page_range.write_to_page(INDIRECTION_COLUMN, self.rid, 'base')
+                page_range.write_to_page(RID_COLUMN, self.rid, 'base')
+                page_range.write_to_page(TIMESTAMP_COLUMN, 0, 'base')
+                page_range.write_to_page(SCHEMA_ENCODING_COLUMN, schema_encoding, 'base')
 
-                record_index += 1
+                for value in columns:
+                    value_index = 4 #value column starts from the 4th column
+                    page_range.write_to_page(value_index, value, 'base')
+                    value_index += 1
+                
+                page_range.num_base_record += 1
             
+            else:
+                new_page_range = Page_range(self.num_columns)
+                new_page_range.write_to_page(INDIRECTION_COLUMN, self.rid, 'base')
+                new_page_range.write_to_page(RID_COLUMN, self.rid, 'base')
+                new_page_range.write_to_page(TIMESTAMP_COLUMN, 0, 'base')
+                new_page_range.write_to_page(SCHEMA_ENCODING_COLUMN, schema_encoding, 'base')
+
+                for value in columns:
+                    value_index = 4 #value column starts from the 4th column
+                    page_range.write_to_page(value_index, value, 'base')
+                    value_index += 1
+                
+                new_page_range.num_base_record += 1
+                self.page_ranges.append(new_page_range)
+
             return True
                 
                 
