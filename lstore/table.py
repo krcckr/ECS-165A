@@ -41,16 +41,15 @@ class Table:
         schema_encoding = int('0' * len(columns))
         key = columns[self.key]
         
-        #if the key exsit return false
         if(key in self.keybuffer):
             return False
         
+        #insert a base record
         else:
             self.keybuffer.append(key)
             self.rid += 1 #assign next rid to base record
-            
-            #insert the record seperately to implement a columnar structrue 
             page_range = self.page_ranges[-1]
+
             if(page_range.has_capacity()):
                 
                 page_range.write_to_page(INDIRECTION_COLUMN, self.rid, 'base')
@@ -64,7 +63,6 @@ class Table:
                     value_index += 1
                 
                 page_range.num_base_record += 1
-
             
             else:
                 new_page_range = Page_range(self.num_columns)
@@ -87,8 +85,17 @@ class Table:
             page_index = self.rid // 512
 
             #update the page_directory
-            self.page_directory[self.rid] = (page_range_index, page_index)
-            
+            self.page_directory[self.rid] = (page_range_index, page_index) 
+        return True
+    
+    def update(self, primary_key, *columns):
+        if(primary_key not in self.keybuffer):
+            return False
+        
+        #insert a tail record
+        else:
+            #first locate the record
+            pass
 
         return True
     
